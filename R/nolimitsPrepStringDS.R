@@ -10,10 +10,13 @@
 #' @param model.b64 base64url-encoded Julia `@Model` source.
 #' @param id.col name of the subject identifier column.
 #' @param time.col name of the time column.
+#' @param evid.col name of the event-identifier column for NONMEM-style event
+#'   tables (dose columns `AMT`, `RATE`, `CMT`), or `""` (the default) for data
+#'   without dose events.
 #' @return The fit cache, which the DataSHIELD engine binds to the analyst's
 #'   symbol.
 #' @export
-nolimitsPrepStringDS <- function(df.name, model.b64, id.col, time.col) {
+nolimitsPrepStringDS <- function(df.name, model.b64, id.col, time.col, evid.col = "") {
   dsBase::checkPermissivePrivacyControlLevel(c("permissive"))
   .dsenv <- parent.frame()
 
@@ -29,6 +32,6 @@ nolimitsPrepStringDS <- function(df.name, model.b64, id.col, time.col) {
     stop("FAILED: model.b64 could not be decoded", call. = FALSE)
   })
 
-  .nlds_prep(df.name, model.source, id.col, time.col, .dsenv)
+  .nlds_prep(df.name, model.source, id.col, time.col, .dsenv, evid.col = evid.col)
 }
 #ASSIGN FUNCTION

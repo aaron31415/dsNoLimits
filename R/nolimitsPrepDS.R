@@ -8,11 +8,14 @@
 #'   [nolimitsModelsDS()].
 #' @param id.col name of the subject identifier column.
 #' @param time.col name of the time column.
+#' @param evid.col name of the event-identifier column for NONMEM-style event
+#'   tables (dose columns `AMT`, `RATE`, `CMT`), or `""` (the default) for data
+#'   without dose events.
 #' @return The fit cache, which the DataSHIELD engine binds to the analyst's
 #'   symbol. It holds a Julia handle plus model-derived metadata; no per-subject
 #'   quantity is ever computed into a return value.
 #' @export
-nolimitsPrepDS <- function(df.name, model.name, id.col, time.col) {
+nolimitsPrepDS <- function(df.name, model.name, id.col, time.col, evid.col = "") {
   .dsenv <- parent.frame()
 
   .nlds_check_name(model.name, "model.name")
@@ -28,6 +31,6 @@ nolimitsPrepDS <- function(df.name, model.name, id.col, time.col) {
   }
   model.source <- paste(readLines(path, warn = FALSE), collapse = "\n")
 
-  .nlds_prep(df.name, model.source, id.col, time.col, .dsenv)
+  .nlds_prep(df.name, model.source, id.col, time.col, .dsenv, evid.col = evid.col)
 }
 #ASSIGN FUNCTION

@@ -643,16 +643,27 @@ nlds_saem_values(u) = Vector{Float64}(u.values)
 #' @param df.name name of the data frame in the session environment.
 #' @param model.source Julia `@Model` source for the model.
 #' @param id.col,time.col column names.
+#' @param evid.col name of the event-identifier column, or `""` for data
+#'   without dose events. When set, the data are read as a NONMEM-style event
+#'   table (`EVID` 0 = observation, 1 = dose, 2 = reset) with dose columns
+#'   `AMT`, `RATE` and `CMT`, as in NoLimits' `DataModel(evid_col = ...)`.
 #' @param .dsenv the session environment, captured by the calling `*DS` function.
 #' @keywords internal
 #' @noRd
-.nlds_prep <- function(df.name, model.source, id.col, time.col, .dsenv) {
+.nlds_prep <- function(df.name, model.source, id.col, time.col, .dsenv,
+                       evid.col = "") {
   .nlds_check_name(id.col, "id.col")
   .nlds_check_name(time.col, "time.col")
+  events <- nzchar(evid.col)
+  if (events) .nlds_check_name(evid.col, "evid.col")
 
   df <- .ds_get(df.name, .dsenv, is.data.frame, "data frame")
   if (!(id.col %in% names(df)) || !(time.col %in% names(df))) {
     stop("FAILED: id.col and time.col must both be columns of the data frame",
+         call. = FALSE)
+  }
+  if (events && !all(c(evid.col, "AMT", "RATE", "CMT") %in% names(df))) {
+    stop("FAILED: an event table needs the columns evid.col, AMT, RATE and CMT",
          call. = FALSE)
   }
 
@@ -668,9 +679,16 @@ nlds_saem_values(u) = Vector{Float64}(u.values)
   built <- tryCatch({
     nl <- NoLimitsR::nolimits()
     model <- NoLimitsR::nl_model(model.source)
-    dm <- nl$DataModel(model, NoLimitsR::nl_data(df),
-                       primary_id = NoLimitsR::jl_sym(id.col),
-                       time_col = NoLimitsR::jl_sym(time.col))
+    dm <- if (events) {
+      nl$DataModel(model, NoLimitsR::nl_data(df),
+                   primary_id = NoLimitsR::jl_sym(id.col),
+                   time_col = NoLimitsR::jl_sym(time.col),
+                   evid_col = NoLimitsR::jl_sym(evid.col))
+    } else {
+      nl$DataModel(model, NoLimitsR::nl_data(df),
+                   primary_id = NoLimitsR::jl_sym(id.col),
+                   time_col = NoLimitsR::jl_sym(time.col))
+    }
     list(dm = dm,
          theta0 = as.numeric(.nlds_fun("nlds_theta0")(dm)),
          names = as.character(.nlds_fun("nlds_names")(dm)),
@@ -730,7 +748,8 @@ nlds_saem_values(u) = Vector{Float64}(u.values)
        scale = built$scale,
        p = p,
        n.subjects = n.subjects,
-       n.obs = nrow(df),
+       # Dose and reset rows of an event table are not observations.
+       n.obs = if (events) sum(df[[evid.col]] == 0) else nrow(df),
        # MCEM M-step partition and its availability, read back by prepInfo so the
        # client can route q1/q2 parameters. Character vectors (or NULL).
        q1.names = q1.names,
